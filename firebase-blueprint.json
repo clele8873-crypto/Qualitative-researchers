@@ -1,0 +1,50 @@
+{
+  "entities": {
+    "TestResult": {
+      "title": "TestResult",
+      "description": "A user's personality test result",
+      "type": "object",
+      "properties": {
+        "name": {
+          "type": "string",
+          "description": "The user's name"
+        },
+        "studentId": {
+          "type": "string",
+          "description": "The user's student ID"
+        },
+        "scores": {
+          "type": "object",
+          "description": "The scores for each dimension",
+          "properties": {
+            "newPositivism": { "type": "number" },
+            "originalism": { "type": "number" },
+            "constructivism": { "type": "number" },
+            "criticalTheory": { "type": "number" }
+          }
+        },
+        "resultTypes": {
+          "type": "array",
+          "description": "The resulting personality types (can be multiple if tied)",
+          "items": {
+            "type": "string"
+          }
+        },
+        "createdAt": {
+          "type": "string",
+          "format": "date-time",
+          "description": "When the test was completed"
+        }
+      },
+      "required": ["name", "studentId", "scores", "resultTypes", "createdAt"]
+    }
+  },
+  "firestore": {
+    "test_results/{resultId}": {
+      "schema": {
+        "$ref": "#/entities/TestResult"
+      },
+      "description": "Stores all the personality test results"
+    }
+  }
+}

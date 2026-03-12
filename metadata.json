@@ -1,0 +1,5 @@
+{
+  "name": "质性研究者人格测试",
+  "description": "一个类似 MBTI 的质性研究者人格测试，包含 20 道题目，支持数据收集与管理员后台。",
+  "requestFramePermissions": []
+}
