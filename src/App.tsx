@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { collection, addDoc, serverTimestamp, getDocs, query, orderBy, getDocFromServer, doc } from 'firebase/firestore';
+import { collection, addDoc, serverTimestamp, getDocs, query, orderBy, getDocFromServer, doc, onSnapshot } from 'firebase/firestore';
 import { db } from './firebase';
 import { questions, dimensions, personalityTypes } from './data';
 import { ChevronRight, ChevronLeft, Send, User, Hash, Lock, LogOut, X, AlertCircle } from 'lucide-react';
@@ -83,6 +83,7 @@ export default function App() {
   const [adminPassword, setAdminPassword] = useState('');
   const [adminResults, setAdminResults] = useState<any[]>([]);
   const [isLoadingAdmin, setIsLoadingAdmin] = useState(false);
+  const [lastUpdated, setLastUpdated] = useState<Date | null>(null);
 
   // Auto-save feature
   useEffect(() => {
@@ -129,15 +130,41 @@ export default function App() {
 
   const handleAdminLogin = (e: React.FormEvent) => {
     e.preventDefault();
-    const correctPassword = process.env.VITE_ADMIN_PASSWORD || 'admin123';
+    const correctPassword = (import.meta as any).env.VITE_ADMIN_PASSWORD || 'admin123';
     if (adminPassword === correctPassword) {
       setAppState('admin');
       setShowPasswordModal(false);
-      loadAdminData();
     } else {
       alert("密码错误！");
     }
   };
+
+  useEffect(() => {
+    let unsubscribe: (() => void) | null = null;
+
+    if (appState === 'admin') {
+      setIsLoadingAdmin(true);
+      const q = query(collection(db, 'test_results'), orderBy('createdAt', 'desc'));
+      
+      unsubscribe = onSnapshot(q, (querySnapshot) => {
+        const results: any[] = [];
+        querySnapshot.forEach((doc) => {
+          results.push({ id: doc.id, ...doc.data() });
+        });
+        setAdminResults(results);
+        setLastUpdated(new Date());
+        setIsLoadingAdmin(false);
+      }, (error) => {
+        console.error("Error listening to admin data:", error);
+        setGlobalError("实时获取数据失败，请检查权限设置。");
+        setIsLoadingAdmin(false);
+      });
+    }
+
+    return () => {
+      if (unsubscribe) unsubscribe();
+    };
+  }, [appState]);
 
   const handleResetProgress = () => {
     if (window.confirm("确定要清除所有进度并重新开始吗？")) {
@@ -256,24 +283,6 @@ export default function App() {
     }
   };
 
-  const loadAdminData = async () => {
-    setIsLoadingAdmin(true);
-    try {
-      const q = query(collection(db, 'test_results'), orderBy('createdAt', 'desc'));
-      const querySnapshot = await getDocs(q);
-      const results: any[] = [];
-      querySnapshot.forEach((doc) => {
-        results.push({ id: doc.id, ...doc.data() });
-      });
-      setAdminResults(results);
-    } catch (error) {
-      console.error("Error loading admin data:", error);
-      setGlobalError("获取数据失败。");
-    } finally {
-      setIsLoadingAdmin(false);
-    }
-  };
-
   if (globalError) {
     return <ErrorDisplay error={globalError} onRetry={() => setGlobalError(null)} />;
   }
@@ -331,7 +340,7 @@ export default function App() {
         )}
       </AnimatePresence>
 
-      <main className="max-w-3xl mx-auto px-4 pb-20 pt-10">
+      <main className="max-w-3xl mx-auto px-4 pb-12 pt-6 md:pb-20 md:pt-10">
         <AnimatePresence mode="wait">
           {appState === 'intro' && (
             <motion.div
@@ -339,13 +348,13 @@ export default function App() {
               initial={{ opacity: 0, y: 20 }}
               animate={{ opacity: 1, y: 0 }}
               exit={{ opacity: 0, y: -20 }}
-              className="bg-white rounded-3xl p-8 md:p-12 shadow-sm border border-stone-100"
+              className="bg-white rounded-[2rem] p-6 md:p-12 shadow-sm border border-stone-100"
             >
-              <div className="text-center mb-10">
-                <h1 className="text-3xl md:text-4xl font-serif font-medium text-stone-900 mb-4">
+              <div className="text-center mb-8 md:mb-10">
+                <h1 className="text-2xl md:text-4xl font-serif font-medium text-stone-900 mb-3 md:mb-4">
                   质性研究者人格测试
                 </h1>
-                <p className="text-stone-500">
+                <p className="text-stone-500 text-sm md:text-base px-4">
                   探索你在质性研究中的认识论倾向与研究者底色
                 </p>
               </div>
@@ -414,28 +423,28 @@ export default function App() {
               initial={{ opacity: 0, x: 20 }}
               animate={{ opacity: 1, x: 0 }}
               exit={{ opacity: 0, x: -20 }}
-              className="bg-white rounded-3xl p-8 md:p-12 shadow-sm border border-stone-100"
+              className="bg-white rounded-[2rem] p-6 md:p-12 shadow-sm border border-stone-100"
             >
-              <div className="mb-8">
-                <div className="flex justify-between text-sm text-stone-500 mb-2 font-mono">
+              <div className="mb-6 md:mb-8">
+                <div className="flex justify-between text-xs md:text-sm text-stone-500 mb-2 font-mono">
                   <span>Question {currentQuestionIndex + 1}</span>
                   <span>{questions.length}</span>
                 </div>
-                <div className="w-full bg-stone-100 rounded-full h-1.5">
+                <div className="w-full bg-stone-100 rounded-full h-1">
                   <div
-                    className="bg-stone-800 h-1.5 rounded-full transition-all duration-500 ease-out"
+                    className="bg-stone-800 h-1 rounded-full transition-all duration-500 ease-out"
                     style={{ width: `${((currentQuestionIndex + 1) / questions.length) * 100}%` }}
                   ></div>
                 </div>
               </div>
 
-              <div className="min-h-[200px] flex flex-col justify-center mb-10">
-                <h2 className="text-2xl md:text-3xl font-medium text-stone-900 leading-relaxed">
+              <div className="min-h-[160px] md:min-h-[200px] flex flex-col justify-center mb-8 md:mb-10">
+                <h2 className="text-xl md:text-3xl font-medium text-stone-900 leading-relaxed">
                   {questions[currentQuestionIndex].text}
                 </h2>
               </div>
 
-              <div className="space-y-3">
+              <div className="space-y-2.5 md:space-y-3">
                 {[
                   { value: 5, label: "很同意" },
                   { value: 4, label: "同意" },
@@ -515,12 +524,12 @@ export default function App() {
                     <div className="absolute top-0 right-0 w-64 h-64 bg-stone-50 rounded-full -mr-20 -mt-20 opacity-50 pointer-events-none"></div>
                     
                     <div className="relative z-10">
-                      <div className="text-sm font-mono text-stone-500 mb-4 uppercase tracking-widest">Your Result</div>
-                      <h2 className="text-3xl md:text-4xl font-serif font-medium text-stone-900 mb-6 leading-tight">
+                      <div className="text-[10px] md:text-sm font-mono text-stone-500 mb-2 md:mb-4 uppercase tracking-widest">Your Result</div>
+                      <h2 className="text-2xl md:text-4xl font-serif font-medium text-stone-900 mb-4 md:mb-6 leading-tight">
                         {typeInfo.name}
                       </h2>
-                      <div className="w-12 h-1 bg-stone-800 mb-8"></div>
-                      <p className="text-stone-600 text-lg leading-relaxed mb-10">
+                      <div className="w-10 h-1 bg-stone-800 mb-6 md:mb-8"></div>
+                      <p className="text-stone-600 text-base md:text-lg leading-relaxed mb-6 md:mb-10">
                         {typeInfo.description}
                       </p>
                     </div>
@@ -557,7 +566,11 @@ export default function App() {
                 </div>
               </div>
 
-              <div className="flex justify-center pt-4">
+              <div className="flex flex-col items-center gap-4 pt-4">
+                <p className="text-xs text-stone-400 flex items-center gap-1">
+                  <span className="w-1.5 h-1.5 rounded-full bg-emerald-500"></span>
+                  数据已成功同步至云端数据库
+                </p>
                 <button
                   onClick={() => {
                     setAppState('intro');
@@ -578,20 +591,26 @@ export default function App() {
               key="admin"
               initial={{ opacity: 0 }}
               animate={{ opacity: 1 }}
-              className="bg-white rounded-3xl p-8 shadow-sm border border-stone-100"
+              className="bg-white rounded-[2rem] p-6 md:p-8 shadow-sm border border-stone-100"
             >
-              <div className="flex justify-between items-center mb-8">
-                <h2 className="text-2xl font-serif font-medium text-stone-900">测验数据管理</h2>
-                <div className="flex gap-4">
+              <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 mb-8">
+                <div>
+                  <h2 className="text-xl md:text-2xl font-serif font-medium text-stone-900">测验数据管理</h2>
+                  <p className="text-[10px] md:text-xs text-stone-400 mt-1">
+                    {lastUpdated ? `最后更新: ${lastUpdated.toLocaleTimeString()}` : '正在连接云端...'}
+                    <span className="ml-2 inline-block w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></span>
+                  </p>
+                </div>
+                <div className="flex gap-3 w-full md:w-auto">
                   <button 
                     onClick={() => setAppState('intro')}
-                    className="text-stone-500 hover:text-stone-800 text-sm font-medium transition-colors"
+                    className="flex-1 md:flex-none text-center text-stone-500 hover:text-stone-800 text-sm font-medium transition-colors py-2"
                   >
                     返回首页
                   </button>
                   <button 
                     onClick={handleAdminLogout}
-                    className="flex items-center text-rose-600 hover:text-rose-700 text-sm font-medium transition-colors"
+                    className="flex-1 md:flex-none flex items-center justify-center text-rose-600 hover:text-rose-700 text-sm font-medium transition-colors py-2"
                   >
                     <LogOut className="w-4 h-4 mr-1" />
                     退出登录
@@ -604,46 +623,91 @@ export default function App() {
               ) : adminResults.length === 0 ? (
                 <div className="py-20 text-center text-stone-500">暂无测验数据</div>
               ) : (
-                <div className="overflow-x-auto">
-                  <table className="w-full text-left text-sm text-stone-600">
-                    <thead className="text-xs text-stone-500 uppercase bg-stone-50 border-b border-stone-200">
-                      <tr>
-                        <th className="px-6 py-4 font-medium">时间</th>
-                        <th className="px-6 py-4 font-medium">姓名</th>
-                        <th className="px-6 py-4 font-medium">学号</th>
-                        <th className="px-6 py-4 font-medium">测验结果</th>
-                        <th className="px-6 py-4 font-medium text-right">原本论</th>
-                        <th className="px-6 py-4 font-medium text-right">新实证论</th>
-                        <th className="px-6 py-4 font-medium text-right">建构论</th>
-                        <th className="px-6 py-4 font-medium text-right">批判理论</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {adminResults.map((result) => (
-                        <tr key={result.id} className="border-b border-stone-100 hover:bg-stone-50/50 transition-colors">
-                          <td className="px-6 py-4 whitespace-nowrap font-mono text-xs">
-                            {result.createdAt?.toDate ? new Date(result.createdAt.toDate()).toLocaleString() : 'N/A'}
-                          </td>
-                          <td className="px-6 py-4 font-medium text-stone-900">{result.name}</td>
-                          <td className="px-6 py-4 font-mono">{result.studentId}</td>
-                          <td className="px-6 py-4">
-                            <div className="flex flex-wrap gap-1">
-                              {result.resultTypes.map((type: string) => (
-                                <span key={type} className="inline-block px-2 py-1 bg-stone-100 text-stone-700 rounded text-xs">
-                                  {personalityTypes[type as keyof typeof personalityTypes]?.name.split('·')[0].trim()}
-                                </span>
-                              ))}
-                            </div>
-                          </td>
-                          <td className="px-6 py-4 text-right font-mono">{result.scores.originalism}</td>
-                          <td className="px-6 py-4 text-right font-mono">{result.scores.newPositivism}</td>
-                          <td className="px-6 py-4 text-right font-mono">{result.scores.constructivism}</td>
-                          <td className="px-6 py-4 text-right font-mono">{result.scores.criticalTheory}</td>
+                <>
+                  {/* Desktop Table */}
+                  <div className="hidden md:block overflow-x-auto">
+                    <table className="w-full text-left text-sm text-stone-600">
+                      <thead className="text-xs text-stone-500 uppercase bg-stone-50 border-b border-stone-200">
+                        <tr>
+                          <th className="px-6 py-4 font-medium">时间</th>
+                          <th className="px-6 py-4 font-medium">姓名</th>
+                          <th className="px-6 py-4 font-medium">学号</th>
+                          <th className="px-6 py-4 font-medium">测验结果</th>
+                          <th className="px-6 py-4 font-medium text-right">原本论</th>
+                          <th className="px-6 py-4 font-medium text-right">新实证论</th>
+                          <th className="px-6 py-4 font-medium text-right">建构论</th>
+                          <th className="px-6 py-4 font-medium text-right">批判理论</th>
                         </tr>
-                      ))}
-                    </tbody>
-                  </table>
-                </div>
+                      </thead>
+                      <tbody>
+                        {adminResults.map((result) => (
+                          <tr key={result.id} className="border-b border-stone-100 hover:bg-stone-50/50 transition-colors">
+                            <td className="px-6 py-4 whitespace-nowrap font-mono text-xs">
+                              {result.createdAt?.toDate ? new Date(result.createdAt.toDate()).toLocaleString() : 'N/A'}
+                            </td>
+                            <td className="px-6 py-4 font-medium text-stone-900">{result.name}</td>
+                            <td className="px-6 py-4 font-mono">{result.studentId}</td>
+                            <td className="px-6 py-4">
+                              <div className="flex flex-wrap gap-1">
+                                {result.resultTypes.map((type: string) => (
+                                  <span key={type} className="inline-block px-2 py-1 bg-stone-100 text-stone-700 rounded text-xs">
+                                    {personalityTypes[type as keyof typeof personalityTypes]?.name.split('·')[0].trim()}
+                                  </span>
+                                ))}
+                              </div>
+                            </td>
+                            <td className="px-6 py-4 text-right font-mono">{result.scores.originalism}</td>
+                            <td className="px-6 py-4 text-right font-mono">{result.scores.newPositivism}</td>
+                            <td className="px-6 py-4 text-right font-mono">{result.scores.constructivism}</td>
+                            <td className="px-6 py-4 text-right font-mono">{result.scores.criticalTheory}</td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+
+                  {/* Mobile Cards */}
+                  <div className="md:hidden space-y-4">
+                    {adminResults.map((result) => (
+                      <div key={result.id} className="p-4 rounded-2xl bg-stone-50 border border-stone-100 space-y-3">
+                        <div className="flex justify-between items-start">
+                          <div>
+                            <div className="font-medium text-stone-900">{result.name}</div>
+                            <div className="text-xs text-stone-500 font-mono">{result.studentId}</div>
+                          </div>
+                          <div className="text-[10px] text-stone-400 font-mono">
+                            {result.createdAt?.toDate ? new Date(result.createdAt.toDate()).toLocaleTimeString() : 'N/A'}
+                          </div>
+                        </div>
+                        <div className="flex flex-wrap gap-1">
+                          {result.resultTypes.map((type: string) => (
+                            <span key={type} className="inline-block px-2 py-1 bg-white text-stone-700 rounded text-[10px] border border-stone-200">
+                              {personalityTypes[type as keyof typeof personalityTypes]?.name.split('·')[0].trim()}
+                            </span>
+                          ))}
+                        </div>
+                        <div className="grid grid-cols-2 gap-2 pt-2 border-t border-stone-200/50">
+                          <div className="flex justify-between text-[10px]">
+                            <span className="text-stone-400">原本论</span>
+                            <span className="font-mono text-stone-700">{result.scores.originalism}</span>
+                          </div>
+                          <div className="flex justify-between text-[10px]">
+                            <span className="text-stone-400">新实证论</span>
+                            <span className="font-mono text-stone-700">{result.scores.newPositivism}</span>
+                          </div>
+                          <div className="flex justify-between text-[10px]">
+                            <span className="text-stone-400">建构论</span>
+                            <span className="font-mono text-stone-700">{result.scores.constructivism}</span>
+                          </div>
+                          <div className="flex justify-between text-[10px]">
+                            <span className="text-stone-400">批判理论</span>
+                            <span className="font-mono text-stone-700">{result.scores.criticalTheory}</span>
+                          </div>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </>
               )}
             </motion.div>
           )}
