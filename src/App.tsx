@@ -153,6 +153,7 @@ export default function App() {
     setAppState('intro');
     setAdminPassword('');
   };
+
   const handleStart = (e: React.FormEvent) => {
     e.preventDefault();
     if (userInfo.name.trim() && userInfo.studentId.trim()) {
@@ -554,6 +555,20 @@ export default function App() {
                     );
                   })}
                 </div>
+              </div>
+
+              <div className="flex justify-center pt-4">
+                <button
+                  onClick={() => {
+                    setAppState('intro');
+                    setUserInfo({ name: '', studentId: '' });
+                    setAnswers({});
+                    setCurrentQuestionIndex(0);
+                  }}
+                  className="px-8 py-3 border border-stone-200 text-stone-600 rounded-full hover:bg-stone-50 transition-all font-medium"
+                >
+                  返回首页
+                </button>
               </div>
             </motion.div>
           )}
